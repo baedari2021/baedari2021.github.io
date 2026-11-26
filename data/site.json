@@ -1,0 +1,27 @@
+{
+  "name": "배다리마을관리 사회적협동조합",
+  "short": "배다리마을관리 사회적협동조합",
+  "tagline": "사람과 사람, 사람과 마을을 잇는 다리",
+  "intro": "고양시 원당 도시재생 지역 주민이 만든 마을관리 사회적협동조합입니다. 교육·집수리·행사·지역활성화·판촉물 사업으로 수익을 만들고, 그 수익을 마을에 다시 돌려드립니다.",
+  "founded": "2021년 1월 1일",
+  "members": 33,
+  "address": "경기도 고양시 덕양구 마상로114번길 18-8",
+  "phone": "031-994-7747",
+  "email": "baedaricoop@naver.com",
+  "domain": "https://baedari.co.kr",
+  "shop_url": "https://baedarigift.com",
+  "form_endpoint": "",
+  "donation_open": false,
+  "sns": {
+    "blog": "https://blog.naver.com/baedaricoop",
+    "instagram": "https://www.instagram.com/baedaricoop",
+    "facebook": "https://www.facebook.com/baedarisocialcoop",
+    "youtube": "https://www.youtube.com/@baedaricoop"
+  },
+  "first_claim": {
+    "text": "경기도와 고양시 첫 마을관리 사회적협동조합",
+    "source_title": "고양신문, 2020.11.25 \"경기도 첫 마을관리 협동조합 생겼다\"",
+    "source_url": ""
+  },
+  "export_url": ""
+}

@@ -1,0 +1,22 @@
+{
+  "fiscal_year_end": "12월 31일",
+  "deadline_note": "정관 제59조의2에 따라 매년 3월 31일까지 기부금 모금액 및 활용실적을 이 홈페이지에 공개합니다.",
+  "docs": [
+    {
+      "title": "정관",
+      "file": "files/jeonggwan.pdf",
+      "note": "배다리마을관리 사회적협동조합 정관"
+    }
+  ],
+  "years": [
+    {
+      "year": "2025",
+      "status": "공개 준비 중"
+    },
+    {
+      "year": "2024",
+      "status": "공개 준비 중"
+    }
+  ],
+  "notices": []
+}
