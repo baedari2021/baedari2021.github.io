@@ -10,7 +10,7 @@
   "email": "baedaricoop@naver.com",
   "domain": "https://baedari.co.kr",
   "shop_url": "https://baedarigift.com",
-  "form_endpoint": "",
+  "form_endpoint": "https://script.google.com/macros/s/AKfycbw6uHBzdiamwiN_QAWlgpc1-UV-Nl3ZRKDMFotI-JNIlPjW_KqvQUJ35v2YVaguF7hYUw/exec",
   "donation_open": false,
   "sns": {
     "blog": "https://blog.naver.com/baedaricoop",
@@ -23,5 +23,5 @@
     "source_title": "고양신문, 2020.11.25 \"경기도 첫 마을관리 협동조합 생겼다\"",
     "source_url": ""
   },
-  "export_url": ""
+  "export_url": "https://script.google.com/macros/s/AKfycbw6uHBzdiamwiN_QAWlgpc1-UV-Nl3ZRKDMFotI-JNIlPjW_KqvQUJ35v2YVaguF7hYUw/exec"
 }
