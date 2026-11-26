@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ steps.deploy.outputs.page_url || steps.retry.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -28,4 +28,10 @@ jobs:
         with:
           path: dist
       - id: deploy
+        uses: actions/deploy-pages@v5
+        continue-on-error: true   # GitHub가 방금 올린 파일을 바로 못 찾는 일이 있어 한 번 더 시도합니다
+      - if: steps.deploy.outcome == 'failure'
+        run: sleep 60
+      - id: retry
+        if: steps.deploy.outcome == 'failure'
         uses: actions/deploy-pages@v5
