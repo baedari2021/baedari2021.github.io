@@ -27,6 +27,39 @@ WORK = load("work.json")
 OPEN = load("open.json")
 CARE = load("care.json")
 WARN = []
+# 임원: 파일 형식(이사장·이사·감사)을 목록으로 바꿔 관리페이지 자료와 같은 모양으로 씁니다
+OFFICERS = ([{"role": "이사장", "name": PEOPLE["chair"]["name"]}] + [{"role": "이사", "name": n} for n in PEOPLE["directors"]]
+            + [{"role": "감사", "name": PEOPLE["auditor"]["name"]}])
+
+
+def web_url(u, https_only=False):
+    """바깥에서 온 주소는 http(s) 로 시작할 때만 씁니다."""
+    u = str(u or "")
+    return u if u.startswith(("https://",) if https_only else ("https://", "http://")) else ""
+
+
+def apply_content(ex):
+    """관리페이지의 홈페이지 내용(기본정보·임원·연혁·하는 일·통합돌봄)을 파일 내용 위에 덮어씁니다."""
+    if "officers" in ex:
+        OFFICERS[:] = ex["officers"]
+    if "history" in ex:
+        TIMELINE[:] = ex["history"]
+    if "areas" in ex:
+        WORK["areas"] = [dict(a, id="gift" if a.get("link") else f"area{i}") for i, a in enumerate(ex["areas"], 1)]
+    site = ex.get("site")
+    if site:
+        for k in ("tagline", "intro", "founded", "address", "phone", "email", "donation_guide"):
+            if k in site:
+                SITE[k] = str(site[k])
+        SITE["members"] = int(site.get("members") or SITE["members"])
+        SITE["shop_url"] = web_url(site.get("shop_url"), True) or SITE["shop_url"]
+        SITE["sns"] = {k: web_url(v, True) for k, v in site.get("sns", {}).items()}
+        fc = site.get("first_claim", {})
+        SITE["first_claim"].update(source_title=str(fc.get("source_title", "")), source_url=web_url(fc.get("source_url")))
+        SITE["donation_open"] = site.get("donation_open") is True
+    care = ex.get("care")
+    if care:
+        CARE.update({k: care[k] for k in ("lead", "short", "why", "returns", "compare", "process", "network", "roadmap") if k in care})
 
 
 def merge_admin_export():
@@ -47,12 +80,13 @@ def merge_admin_export():
     done = {y["year"] for y in ex.get("years", [])}
     OPEN["years"] = sorted(ex.get("years", []) + [y for y in OPEN["years"] if y["year"] not in done],
                            key=lambda y: y["year"], reverse=True)
-    if ex.get("records"):
+    if ex.get("records") or (ex.get("v", 1) >= 2 and "records" in ex):
         WORK["records"] = ex["records"]
-    if ex.get("notices"):
+    if ex.get("notices") or (ex.get("v", 1) >= 2 and "notices" in ex):
         OPEN["notices"] = ex["notices"]
-    # 언론·표창은 관리 시트가 원본: 관리페이지에서 지우거나 비공개로 바꾸면 홈페이지에서도 빠집니다
-    for key in ("press", "awards"):
+    apply_content(ex)
+    # 언론·표창·협약은 관리 시트가 원본: 관리페이지에서 지우거나 비공개로 바꾸면 홈페이지에서도 빠집니다
+    for key in ("press", "awards", "mou"):
         if key in ex:
             PARTNERS[key] = ex[key]
     for item in PARTNERS["press"]:
@@ -152,9 +186,8 @@ def layout(page, title, body, desc=None, base=False):
     desc = desc or SITE["intro"]
     nav = "".join(
         f'<li><a href="{h}"{" aria-current=page" if h == page else ""}>{t}</a></li>' for h, t in NAV)
-    sns = "".join(ext(u, n) for n, u in [
-        ("네이버 블로그", SITE["sns"]["blog"]), ("인스타그램", SITE["sns"]["instagram"]),
-        ("페이스북", SITE["sns"]["facebook"]), ("유튜브", SITE["sns"]["youtube"])])
+    sns = "".join(ext(SITE["sns"][k], n) for k, n in [
+        ("blog", "네이버 블로그"), ("instagram", "인스타그램"), ("facebook", "페이스북"), ("youtube", "유튜브")] if SITE["sns"].get(k))
     full_title = f'{SITE["name"]} | {SITE["tagline"]}' if page == "index.html" else f'{title} | {SITE["name"]}'
     url = f'{SITE["domain"]}/' + ("" if page == "index.html" else page)
     return f"""<!doctype html>
@@ -179,7 +212,7 @@ def layout(page, title, body, desc=None, base=False):
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="style.css">
-<script type="application/ld+json">{json.dumps({"@context": "https://schema.org", "@type": "Organization", "name": SITE["name"], "url": SITE["domain"], "logo": SITE["domain"] + "/logo.png", "address": SITE["address"], "telephone": SITE["phone"], "email": SITE["email"], "sameAs": list(SITE["sns"].values())}, ensure_ascii=False)}</script>
+<script type="application/ld+json">{json.dumps({"@context": "https://schema.org", "@type": "Organization", "name": SITE["name"], "url": SITE["domain"], "logo": SITE["domain"] + "/logo.png", "address": SITE["address"], "telephone": SITE["phone"], "email": SITE["email"], "sameAs": [u for u in SITE["sns"].values() if u]}, ensure_ascii=False).replace("<", "\\u003c")}</script>
 </head>
 <body>
 <a class="skip" href="#main">본문 바로가기</a>
@@ -259,6 +292,8 @@ def press_list():
 
 
 def mou_list():
+    if not PARTNERS["mou"]:
+        return '<p class="note">등록된 협약이 없습니다.</p>'
     return '<ul class="plain mou">' + "".join(
         f'<li><b>{E(m["name"])}</b><span class="meta">{m["date"]} {E(m.get("kind", "업무협약"))}</span>' + (f'<span class="d">{E(m["desc"])}</span>' if m.get("desc") else "") + '</li>'
         for m in PARTNERS["mou"]) + "</ul>"
@@ -280,11 +315,15 @@ def page_index():
     src = (ext(fc["source_url"], E(fc["source_title"])) if fc["source_url"] else E(fc["source_title"]))
     if not fc["source_url"]:
         WARN.append("'첫 마을관리 사회적협동조합' 출처 URL(site.json first_claim.source_url)이 비어 있습니다.")
-    first, last = SITE["tagline"].split(", ")
-    last_head, last_word = last.rsplit(" ", 1)
+    first, comma, last = SITE["tagline"].partition(",")
+    if not comma:
+        first, last = "", first
+    head_part, _, last_word = last.strip().rpartition(" ")
+    h1 = (f"{E(first.strip())},<br>" if first else "") + (f"{E(head_part)} " if head_part else "") + f"<em>{E(last_word)}</em>"
     trust = [("사회적협동조합", "2020.11 설립 인가 (국토교통부)"),
              ("공익법인", "구 지정기부금단체 · 기부금영수증 발급"),
              ("경기도·고양시 첫", "마을관리 사회적협동조합")]
+    src_line = f'<p class="src">출처: {src}</p>' if fc["source_title"] else ""
     trust_html = "".join(f'<li><span class="mk" aria-hidden="true"></span><b>{a}</b><span>{b}</span></li>' for a, b in trust)
     areas = [a for a in WORK["areas"] if a["id"] != "gift"]
     area_html = "".join(
@@ -313,7 +352,7 @@ def page_index():
 <section class="hero"><div class="wrap hgrid">
   <div class="htext">
     <p class="kicker">고양시 원당 · 마을관리 사회적협동조합</p>
-    <h1>{E(first)},<br>{E(last_head)} <em>{E(last_word)}</em></h1>
+    <h1>{h1}</h1>
     <p class="intro">{E(SITE['intro'])}</p>
     <p class="cta"><a class="btn solid" href="join.html">함께하기</a>{shop_link(SHOP_LABEL, "btn ghost")}</p>
     <a class="nowchip" href="care.html"><span class="dot" aria-hidden="true"></span><b>추진 중</b>고양시형 통합돌봄(AIP) 거점<span class="go" aria-hidden="true">→</span></a>
@@ -321,7 +360,7 @@ def page_index():
   <div class="hart">{mosaic()}</div>
 </div></section>
 <section class="trust"><div class="wrap"><ul>{trust_html}</ul>
-<p class="src">출처: {src}</p></div></section>
+{src_line}</div></section>
 {block('하는 일', f'<ol class="areas">{area_html}</ol><p class="more">{arrow_link("work.html", "사업 내용과 실적 보기")}</p>', '주민이 만든 조합이 마을에 필요한 일을 합니다.', sid='what')}
 {care_band}
 <section class="shopband"><div class="wrap sgrid">
@@ -338,8 +377,12 @@ def page_index():
 
 
 def page_about():
-    ppl = PEOPLE
-    dirs = "".join(f"<li>{E(n)}</li>" for n in ppl["directors"])
+    officer_rows = ""
+    for role in ("이사장", "이사", "감사"):
+        names = [o["name"] for o in OFFICERS if o["role"] == role]
+        if names:
+            cell = E(names[0]) if len(names) == 1 else '<ul class="inline">' + "".join(f"<li>{E(n)}</li>" for n in names) + "</ul>"
+            officer_rows += f"<div><dt>{role}</dt><dd>{cell}</dd></div>"
     tl = "".join(f'<li><time>{E(t["date"])}</time><span>{E(t["text"])}</span></li>' for t in TIMELINE)
     for t in TIMELINE:
         if t.get("review"):
@@ -358,9 +401,7 @@ def page_about():
 <div><h3>행하다</h3><p>우리가 사는 도시를, 마을을, 사람을 위한 모든 것을 행합니다.</p></div></div>
 </div></section>
 <section class="blk soft"><div class="wrap"><div class="sec-head"><h2>임원</h2></div>
-<dl class="officers"><div><dt>이사장</dt><dd>{E(ppl['chair']['name'])}</dd></div>
-<div><dt>이사</dt><dd><ul class="inline">{dirs}</ul></dd></div>
-<div><dt>감사</dt><dd>{E(ppl['auditor']['name'])}</dd></div></dl></div></section>
+<dl class="officers">{officer_rows}</dl></div></section>
 <section class="blk"><div class="wrap"><div class="sec-head"><h2>연혁</h2></div><ol class="timeline">{tl}</ol></div></section>
 <section class="blk soft"><div class="wrap"><div class="sec-head"><h2>신뢰 경영</h2><p class="sub">협력 협약과 언론 보도로 조합의 활동을 확인하실 수 있습니다.</p></div>
 <div class="two"><div><h3>협력 협약</h3>{mou_list()}{award_block()}</div><div><h3>언론 보도</h3>{press_list()}</div></div></div></section>"""
@@ -416,7 +457,7 @@ def page_news():
     body = page_head("소식", "조합 블로그의 최근 글입니다. 글을 누르면 블로그가 새 창으로 열립니다.", "소식") + f"""
 <section class="blk"><div class="wrap"><div class="chips" role="group" aria-label="분류">{btns}</div>
 <div id="newslist">{news_rows(NEWS)}</div>
-<p class="more">{arrow_link(SITE['sns']['blog'], '네이버 블로그에서 더 보기', True)}</p></div></section>"""
+<p class="more">{arrow_link(SITE['sns'].get('blog') or 'https://blog.naver.com/baedaricoop', '네이버 블로그에서 더 보기', True)}</p></div></section>"""
     return layout("news.html", "소식", body, "배다리마을관리 사회적협동조합 활동 소식")
 
 
@@ -424,10 +465,11 @@ def page_join():
     ep = SITE["form_endpoint"]
     if not ep:
         WARN.append("문의 폼 전송 주소(site.json form_endpoint)가 비어 있어 폼은 이메일 보내기로 동작합니다.")
-    if SITE["donation_open"]:
+    guide = SITE.get("donation_guide", "").strip()
+    if SITE["donation_open"] and guide:
         donate = f"""<p>{E(SITE['name'])}은 공익법인(구 지정기부금단체)으로 지정되어 후원금에 대한 <b>기부금영수증</b>을 발급합니다.
 후원금 모집액과 사용 내역은 <a href="open.html#donations">투명경영</a> 페이지에 공개합니다.</p>
-<p>후원 방법: <b>(후원 계좌·방법 입력)</b></p>"""
+<p><b>후원 방법</b><br>{E(guide).replace(chr(10), "<br>")}</p>"""
     else:
         donate = """<p>공익법인(구 지정기부금단체)으로서 후원금 모집·사용 내역을 투명하게 공개한 뒤 후원 안내를 열겠습니다. 후원에 관심 있으신 분은 아래 문의로 연락 주세요.</p>"""
     form = f"""<form id="inquiry" class="form" data-endpoint="{E(ep)}" data-mailto="{E(SITE['email'])}">
